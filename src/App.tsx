@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createWalletClient, custom, type Address } from "viem";
 import { ALCClient, buildCreateALCSegmentedV3LaunchWithTokenConfig, type AmmoraLaunchSummary } from "@ammora-protocol/sdk";
-import { CHAIN_ID, dataApi, giwaSepolia, launchContracts, publicClient } from "./chain";
+import { CHAIN_ID, dataApi, giwaSepolia, launchCandidates, publicClient } from "./chain";
 
 type Eth = { request: (a: { method: string; params?: unknown[] }) => Promise<unknown> };
 const eth = () => (window as unknown as { ethereum?: Eth }).ethereum;
@@ -13,6 +13,8 @@ export function App() {
   const [launches, setLaunches] = useState<AmmoraLaunchSummary[]>([]);
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
+  const [listError, setListError] = useState("");
+  const [mine, setMine] = useState<{ name: string; symbol: string; hash: string }[]>([]);
   const [form, setForm] = useState({ name: "", symbol: "", metadataURI: "", creatorMetadataURI: "" });
 
   const refresh = useCallback(async () => {
@@ -20,8 +22,9 @@ export function App() {
     try {
       const page = await dataApi.getLaunches({ chainId: CHAIN_ID });
       setLaunches(page.items);
+      setListError("");
     } catch (e) {
-      setStatus(`Could not load launches: ${(e as Error).message}`);
+      setListError(`Could not load the public list (${(e as Error).message}). Your own launches below still work.`);
     } finally { setLoading(false); }
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
@@ -66,23 +69,36 @@ export function App() {
     if (!p || !account) return setStatus("Connect your wallet first.");
     try {
       setStatus("Reading the live launch config…");
-      const alc = new ALCClient(publicClient, launchContracts.factory, launchContracts.configRegistry, { trustCurveAddress: true });
-      const { items } = await alc.listConfigs({ limit: 16 });
-      const cfg = items.find((c) => c.enabled);
-      if (!cfg) throw new Error("No enabled launch config on the registry.");
-      const tx = await alc.planLaunchWithTokenConfigFromConfig({
-        factory: launchContracts.factory,
-        name: form.name, symbol: form.symbol,
-        metadataURI: form.metadataURI || "ipfs://",
-        creatorMetadataURI: form.creatorMetadataURI || "ipfs://",
-        configId: cfg.configId, tokenDecimals: 9,
-      });
+      let tx: { data: `0x${string}`; value?: bigint } | undefined;
+      let factory: Address | undefined;
+      const errors: string[] = [];
+      for (const c of launchCandidates) {
+        try {
+          const alc = new ALCClient(publicClient, c.launch.factory, c.launch.configRegistry, { trustCurveAddress: true });
+          const { items } = await alc.listConfigs({ limit: 16 });
+          const cfg = items.find((i) => i.enabled);
+          if (!cfg) throw new Error("no enabled config");
+          tx = await alc.planLaunchWithTokenConfigFromConfig({
+            factory: c.launch.factory,
+            name: form.name, symbol: form.symbol,
+            metadataURI: form.metadataURI || "ipfs://",
+            creatorMetadataURI: form.creatorMetadataURI || "ipfs://",
+            configId: cfg.configId, tokenDecimals: 9,
+          });
+          factory = c.launch.factory;
+          break;
+        } catch (err) {
+          errors.push(`${c.name}: ${(err as Error).message.split("\n")[0]}`);
+        }
+      }
+      if (!tx || !factory) throw new Error(`No launch deployment worked. ${errors.join(" | ")}`);
       setStatus("Confirm in your wallet…");
       const wallet = createWalletClient({ account, chain: giwaSepolia, transport: custom(p) });
-      const hash = await wallet.sendTransaction({ to: launchContracts.factory, data: tx.data, value: tx.value });
+      const hash = await wallet.sendTransaction({ to: factory, data: tx.data, value: tx.value });
       setStatus(`Sent: ${hash}`);
       await publicClient.waitForTransactionReceipt({ hash });
-      setStatus(`Launched. Tx ${short(hash)} confirmed. The list updates once the indexer catches up.`);
+      setMine((m) => [{ name: form.name, symbol: form.symbol, hash }, ...m]);
+      setStatus(`Launched. Tx ${short(hash)} confirmed on GIWA Sepolia.`);
       setTimeout(() => void refresh(), 8000);
     } catch (err) {
       setStatus(`Launch failed: ${(err as Error).message.split("\n")[0]}`);
@@ -113,7 +129,18 @@ export function App() {
       </section>
 
       <section>
+        <h2>Your launches</h2>
+        {mine.length === 0 ? <p>Launches you create in this session appear here.</p> : (
+          <ul>{mine.map((m) => (
+            <li key={m.hash}><span style={{ color: "var(--text)", fontWeight: 600 }}>{m.name} ({m.symbol})</span>
+              <a href={explorer(`tx/${m.hash}`)} target="_blank" rel="noreferrer">view transaction</a></li>
+          ))}</ul>
+        )}
+      </section>
+
+      <section>
         <h2>Live launches</h2>
+        {listError && <p className="status">{listError}</p>}
         {loading ? <p>Loading…</p> : launches.length === 0 ? <p>No launches yet. Create the first one above.</p> : (
           <ul>
             {launches.map((l) => (

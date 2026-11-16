@@ -1,5 +1,5 @@
 import { createPublicClient, defineChain, http } from "viem";
-import { AmmoraDataApiClient, giwaSepoliaVNext } from "@ammora-protocol/sdk";
+import { AmmoraDataApiClient, giwaSepoliaSealed, giwaSepoliaMerged, giwaSepoliaVNext, giwaSepoliaAudited } from "@ammora-protocol/sdk";
 
 export const giwaSepolia = defineChain({
   id: 91342,
@@ -12,4 +12,10 @@ export const giwaSepolia = defineChain({
 export const publicClient = createPublicClient({ chain: giwaSepolia, transport: http() });
 export const dataApi = new AmmoraDataApiClient("https://ammora-giwa-sepolia-data.fly.dev");
 export const CHAIN_ID = 91_342n;
-export const launchContracts = giwaSepoliaVNext.contracts.launch;
+// Tried in order; the first one whose registry responds with an enabled config is used.
+export const launchCandidates = [
+  { name: "sealed", launch: giwaSepoliaSealed.contracts.launch },
+  { name: "merged", launch: giwaSepoliaMerged.contracts.launch },
+  { name: "vnext", launch: giwaSepoliaVNext.contracts.launch },
+  { name: "audited", launch: giwaSepoliaAudited.contracts.launch },
+] as const;
