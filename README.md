@@ -1,28 +1,9 @@
-# Ammora Launchpad
+# Ammora Launchpad (GIWA Sepolia testnet)
 
-A decentralized token launchpad built on top of the **Ammora Protocol SDK** for the **GIWA Sepolia** testnet. This web application allows users to connect their browser wallet, explore live token launches, and deploy new tokens directly through Ammora's launch registry.
+Token launchpad built with `@ammora-protocol/sdk@0.2.13` + viem + React.
 
-## Features
-- **Live Launch Feed:** Fetches and displays active token launches in real time using Ammora's Data API with direct block explorer links.
-- **Wallet Integration:** Seamless browser wallet connection (e.g., MetaMask) with automatic network switching to **GIWA Sepolia (Chain ID: 91342)**.
-- **Token Creation:** Interactive launch form powered by `ALCClient` that reads enabled configurations from the Ammora registry to build and submit token launch transactions.
+    npm install
+    npm run dev      # http://localhost:5173
+    npm run build    # static site in dist/ (deploy to Vercel/Netlify)
 
-## Tech Stack
-- **Frontend:** React, TypeScript, Vite
-- **Web3 / Protocol:** Ammora Protocol SDK, EVM Wallet Provider
-
-## Getting Started
-
-1. **Install dependencies:**
-   ```bash
-   npm install
-2.**Run the development server: **
-
-``bash
- npm run dev 
- 
-3.Build for production:
-
- ```bash
-npm run build
-
+Needs a browser wallet with GIWA Sepolia test ETH (chain 91342). Testnet only.
