@@ -16,11 +16,13 @@ A decentralized token launchpad built on top of the **Ammora Protocol SDK** for 
 1. **Install dependencies:**
    ```bash
    npm install
-Run the development server:
+2.**Run the development server: **
 
-Bash
-npm run dev
-Build for production:
+``bash
+ npm run dev 
+ 
+3.Build for production:
 
-Bash
+ ```bash
 npm run build
+
